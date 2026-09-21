@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useVoiceInput } from '../hooks/useVoiceInput'
+import { addDaysISO, todayISO } from '../lib/date'
 import { createTask } from '../lib/tasksApi'
 import type { Priority } from '../types'
 
@@ -9,21 +10,33 @@ const PRIORITY_TAGS: Record<string, Priority> = {
   '!medium': 'medium',
 }
 
-function parseQuickAdd(raw: string): { title: string; priority: Priority } {
+const DATE_TAGS: Record<string, () => string> = {
+  today: todayISO,
+  tomorrow: () => addDaysISO(1),
+}
+
+function parseQuickAdd(raw: string): { title: string; priority: Priority; dueDate: string | null } {
   let priority: Priority = 'medium'
+  let dueDate: string | null = null
   const title = raw
     .split(/\s+/)
     .filter((word) => {
-      const tag = PRIORITY_TAGS[word.toLowerCase()]
-      if (tag) {
-        priority = tag
+      const lower = word.toLowerCase()
+      const priorityTag = PRIORITY_TAGS[lower]
+      if (priorityTag) {
+        priority = priorityTag
+        return false
+      }
+      const dateTag = DATE_TAGS[lower]
+      if (dateTag) {
+        dueDate = dateTag()
         return false
       }
       return true
     })
     .join(' ')
     .trim()
-  return { title, priority }
+  return { title, priority, dueDate }
 }
 
 interface AddTaskInputProps {
@@ -44,9 +57,9 @@ export function AddTaskInput({ uid, groupId, nextOrder }: AddTaskInputProps) {
   function submit(text: string) {
     const trimmed = text.trim()
     if (!trimmed) return
-    const { title, priority } = parseQuickAdd(trimmed)
+    const { title, priority, dueDate } = parseQuickAdd(trimmed)
     if (!title) return
-    createTask(uid, { groupId, title, order: nextOrder, priority })
+    createTask(uid, { groupId, title, order: nextOrder, priority, dueDate })
     setValue('')
     setPendingVoice(null)
   }
@@ -66,7 +79,7 @@ export function AddTaskInput({ uid, groupId, nextOrder }: AddTaskInputProps) {
             setValue(e.target.value)
             setPendingVoice(null)
           }}
-          placeholder="Add a task… (try !high for priority)"
+          placeholder="Add a task… (try !high or today/tomorrow)"
           className="flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-1.5 text-sm outline-none focus:border-slate-400 dark:border-slate-700"
         />
         {voice.supported && (

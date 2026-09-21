@@ -1,8 +1,19 @@
-import { useMemo } from 'react'
-import { GroupItem } from './components/GroupItem'
+import { DndContext, type DragEndEvent, closestCenter } from '@dnd-kit/core'
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useMemo, useState } from 'react'
 import { NewGroupButton } from './components/NewGroupButton'
+import { SearchFilterBar } from './components/SearchFilterBar'
+import { SortableGroupItem } from './components/SortableGroupItem'
+import { ThemeToggle } from './components/ThemeToggle'
+import { ToastContainer } from './components/ToastContainer'
+import { TodayView } from './components/TodayView'
+import { useDndSensors } from './hooks/useDndSensors'
 import { firebaseConfigured } from './lib/firebase'
+import { reorderGroups } from './lib/tasksApi'
 import { useTaskStore } from './store/useTaskStore'
+import type { Priority } from './types'
+
+type View = 'groups' | 'today'
 
 function ConfigWarning() {
   return (
@@ -22,30 +33,79 @@ function App() {
   const authReady = useTaskStore((s) => s.authReady)
   const groups = useTaskStore((s) => s.groups)
   const tasks = useTaskStore((s) => s.tasks)
+  const sensors = useDndSensors()
+
+  const [view, setView] = useState<View>('groups')
+  const [query, setQuery] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
+
+  const filtersActive = query.trim() !== '' || priorityFilter !== 'all'
+
+  const filteredTasks = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return tasks.filter((t) => {
+      if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
+      if (q && !t.title.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [tasks, query, priorityFilter])
 
   const tasksByGroup = useMemo(() => {
     const map = new Map<string, typeof tasks>()
-    for (const task of tasks) {
+    for (const task of filteredTasks) {
       const list = map.get(task.groupId) ?? []
       list.push(task)
       map.set(task.groupId, list)
     }
     return map
-  }, [tasks])
+  }, [filteredTasks])
+
+  const visibleGroups = useMemo(() => {
+    if (!filtersActive) return groups
+    return groups.filter((g) => (tasksByGroup.get(g.id) ?? []).length > 0)
+  }, [groups, filtersActive, tasksByGroup])
 
   const overall = useMemo(() => {
     if (tasks.length === 0) return 0
     return Math.round(tasks.reduce((sum, t) => sum + t.percent, 0) / tasks.length)
   }, [tasks])
 
+  function handleGroupDragEnd(event: DragEndEvent) {
+    if (!uid) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = groups.findIndex((g) => g.id === active.id)
+    const newIndex = groups.findIndex((g) => g.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    reorderGroups(uid, arrayMove(groups, oldIndex, newIndex).map((g) => g.id))
+  }
+
   return (
     <div className="min-h-svh">
       <header className="border-b border-slate-200 dark:border-slate-800">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-4">
           <h1 className="text-lg font-semibold">Task Pulse</h1>
-          {tasks.length > 0 && (
-            <span className="text-sm text-slate-400">{overall}% done overall</span>
-          )}
+          <div className="flex items-center gap-3">
+            {tasks.length > 0 && (
+              <span className="text-sm text-slate-400">{overall}% done overall</span>
+            )}
+            <ThemeToggle />
+          </div>
+        </div>
+        <div className="mx-auto flex max-w-2xl gap-1 px-4 pb-3">
+          {(['groups', 'today'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded-full px-3 py-1 text-sm font-medium capitalize transition-colors ${
+                view === v
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -56,18 +116,40 @@ function App() {
           <p className="text-center text-sm text-slate-400">Loading…</p>
         ) : (
           <>
-            {groups.map((group) => (
-              <GroupItem
-                key={group.id}
-                uid={uid}
-                group={group}
-                tasks={tasksByGroup.get(group.id) ?? []}
-              />
-            ))}
-            <NewGroupButton uid={uid} nextOrder={groups.length} />
+            <SearchFilterBar
+              query={query}
+              onQueryChange={setQuery}
+              priority={priorityFilter}
+              onPriorityChange={setPriorityFilter}
+            />
+
+            {view === 'today' ? (
+              <TodayView uid={uid} tasks={filteredTasks} groups={groups} />
+            ) : (
+              <>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+                  <SortableContext items={visibleGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {visibleGroups.map((group) => (
+                        <SortableGroupItem
+                          key={group.id}
+                          uid={uid}
+                          group={group}
+                          tasks={tasksByGroup.get(group.id) ?? []}
+                          dragDisabled={filtersActive}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <NewGroupButton uid={uid} nextOrder={groups.length} />
+              </>
+            )}
           </>
         )}
       </main>
+
+      <ToastContainer />
     </div>
   )
 }
