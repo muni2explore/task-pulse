@@ -48,13 +48,13 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white/60 dark:border-slate-800 dark:bg-slate-900/40">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <section className="group rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3 px-4 py-3.5">
         {dragHandleProps && (
           <button
             {...dragHandleProps}
             aria-label="Drag to reorder group"
-            className="shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500"
+            className="shrink-0 cursor-grab touch-none text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M7 4a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5-12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" />
@@ -65,7 +65,7 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
         <button
           onClick={() => setGroupCollapsed(uid, group.id, !group.collapsed)}
           aria-label={group.collapsed ? 'Expand group' : 'Collapse group'}
-          className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-400"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
         >
           <svg
             viewBox="0 0 20 20"
@@ -80,7 +80,10 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
           </svg>
         </button>
 
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: group.color }} />
+        <span
+          className="h-3 w-3 shrink-0 rounded-full ring-4"
+          style={{ backgroundColor: group.color, boxShadow: `0 0 0 3px ${group.color}22` }}
+        />
 
         {editing ? (
           <input
@@ -89,18 +92,18 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
             onChange={(e) => setName(e.target.value)}
             onBlur={commitName}
             onKeyDown={(e) => e.key === 'Enter' && commitName()}
-            className="flex-1 border-b border-slate-300 bg-transparent text-sm font-semibold outline-none"
+            className="flex-1 border-b border-blue-400 bg-transparent text-[15px] font-semibold outline-none"
           />
         ) : (
           <button
-            className="flex-1 truncate text-left text-sm font-semibold"
+            className="flex-1 truncate text-left text-[15px] font-semibold"
             onClick={() => setEditing(true)}
           >
             {group.name}
           </button>
         )}
 
-        <span className="shrink-0 text-xs text-slate-400">
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
           {doneCount}/{tasks.length} · {avgPercent}%
         </span>
 
@@ -111,7 +114,7 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
             }
           }}
           aria-label="Delete group"
-          className="shrink-0 text-slate-300 hover:text-rose-500"
+          className="shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-rose-500 focus-visible:opacity-100 group-hover:opacity-100 dark:text-slate-600"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
             <path
@@ -123,7 +126,7 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
         </button>
       </div>
 
-      <div className="px-4 pb-1">
+      <div className="px-4 pb-2">
         <ProgressBar percent={avgPercent} color={group.color} />
       </div>
 

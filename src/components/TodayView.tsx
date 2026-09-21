@@ -27,9 +27,18 @@ export function TodayView({ uid, tasks, groups }: TodayViewProps) {
 
   if (dueTasks.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-400 dark:border-slate-700">
-        Nothing due today.
-      </p>
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-slate-700">
+        <svg viewBox="0 0 20 20" fill="none" className="h-8 w-8 text-slate-300 dark:text-slate-600">
+          <path
+            d="M5 10.5l2.5 2.5 4-5.5M17 10a7 7 0 11-14 0 7 7 0 0114 0z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <p className="text-sm text-slate-400">Nothing due today.</p>
+      </div>
     )
   }
 

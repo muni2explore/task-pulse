@@ -11,7 +11,7 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className="flex items-center gap-3 rounded-full bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg shadow-black/10 animate-[toast-in_200ms_ease-out] dark:bg-slate-100 dark:text-slate-900"
         >
           <span>{toast.message}</span>
           {toast.onAction && (

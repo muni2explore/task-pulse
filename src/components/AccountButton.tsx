@@ -2,6 +2,25 @@ import { useState } from 'react'
 import { signInWithGoogle, signOutUser } from '../lib/firebase'
 import { syncAuthUser, useTaskStore } from '../store/useTaskStore'
 
+// Firebase auth errors carry a `code`; surface enough of it to actually
+// debug from, instead of one generic message for every possible failure.
+function describeAuthError(err: unknown): string | null {
+  const code = (err as { code?: string } | undefined)?.code
+  switch (code) {
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return null // the user closed the popup themselves — not a real error
+    case 'auth/unauthorized-domain':
+      return "This domain isn't authorized for sign-in yet (Firebase console → Authentication → Settings → Authorized domains)."
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the sign-in popup — allow popups for this site and try again.'
+    case 'auth/network-request-failed':
+      return 'Network error — check your connection and try again.'
+    default:
+      return code ? `Sign-in failed (${code}).` : 'Sign-in failed. Please try again.'
+  }
+}
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 18 18" className="h-4 w-4 shrink-0">
@@ -41,7 +60,7 @@ export function AccountButton() {
       if (signedInUser) syncAuthUser(signedInUser)
     } catch (err) {
       console.error('Google sign-in failed', err)
-      setError('Sign-in failed. Please try again.')
+      setError(describeAuthError(err))
     } finally {
       setLoading(false)
     }

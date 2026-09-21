@@ -6,10 +6,10 @@ import { useToastStore } from '../store/useToastStore'
 import type { Task } from '../types'
 import { ProgressBar } from './ProgressBar'
 
-const PRIORITY_STYLES: Record<Task['priority'], string> = {
-  low: 'text-slate-400',
-  medium: 'text-amber-500',
-  high: 'text-rose-500',
+const PRIORITY_BADGE: Record<Task['priority'], string> = {
+  low: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+  medium: '',
+  high: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400',
 }
 
 interface TaskItemProps {
@@ -44,13 +44,13 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
   }
 
   return (
-    <div className="group rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+    <div className="group rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800/40">
       <div className="flex items-center gap-2">
         {dragHandleProps && (
           <button
             {...dragHandleProps}
             aria-label="Drag to reorder"
-            className="shrink-0 cursor-grab touch-none text-slate-300 opacity-0 hover:text-slate-500 group-hover:opacity-100"
+            className="shrink-0 cursor-grab touch-none text-slate-300 opacity-0 hover:text-slate-500 focus-visible:opacity-100 group-hover:opacity-100 dark:text-slate-600"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M7 4a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5-12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm0 6a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z" />
@@ -65,7 +65,7 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
           style={{ borderColor: color, backgroundColor: done ? color : 'transparent' }}
         >
           {done && (
-            <svg viewBox="0 0 20 20" fill="white" className="h-3 w-3">
+            <svg viewBox="0 0 20 20" fill="white" className="h-3 w-3 animate-[check-pop_220ms_ease]">
               <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 111.4-1.4L8.3 11.6l6.3-6.3a1 1 0 011.4 0z" />
             </svg>
           )}
@@ -87,14 +87,22 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
         </button>
 
         {due && (
-          <span className={`shrink-0 text-xs ${due.overdue && !done ? 'font-medium text-rose-500' : 'text-slate-400'}`}>
+          <span
+            className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs ${
+              due.overdue && !done
+                ? 'bg-rose-50 font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
+                : 'text-slate-400'
+            }`}
+          >
             {due.label}
           </span>
         )}
 
-        <span className={`text-xs font-medium ${PRIORITY_STYLES[task.priority]}`}>
-          {task.priority !== 'medium' && task.priority}
-        </span>
+        {task.priority !== 'medium' && (
+          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${PRIORITY_BADGE[task.priority]}`}>
+            {task.priority}
+          </span>
+        )}
 
         <span className="w-9 shrink-0 text-right text-xs tabular-nums text-slate-500">
           {task.percent}%
@@ -103,7 +111,7 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
         <button
           onClick={handleDelete}
           aria-label="Delete task"
-          className="shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-rose-500 group-hover:opacity-100"
+          className="shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-rose-500 focus-visible:opacity-100 group-hover:opacity-100 dark:text-slate-600"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
             <path
@@ -115,12 +123,12 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
         </button>
       </div>
 
-      <div className="mt-2 pl-8">
+      <div className="mt-2 pl-7">
         <ProgressBar percent={task.percent} color={color} />
       </div>
 
       {expanded && (
-        <div className="mt-2 space-y-2 pl-8">
+        <div className="mt-2.5 space-y-2 pl-7">
           <div className="flex items-center gap-2">
             <input
               type="range"
@@ -134,13 +142,13 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
             />
             <button
               onClick={() => bump(-10)}
-              className="rounded border border-slate-200 px-1.5 py-0.5 text-xs dark:border-slate-700"
+              className="rounded-md border border-slate-200 px-1.5 py-0.5 text-xs hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               -10
             </button>
             <button
               onClick={() => bump(10)}
-              className="rounded border border-slate-200 px-1.5 py-0.5 text-xs dark:border-slate-700"
+              className="rounded-md border border-slate-200 px-1.5 py-0.5 text-xs hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               +10
             </button>
@@ -152,24 +160,24 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
               type="date"
               value={task.dueDate ?? ''}
               onChange={(e) => updateTask(uid, task.id, { dueDate: e.target.value || null })}
-              className="rounded border border-slate-200 bg-transparent px-1.5 py-0.5 dark:border-slate-700"
+              className="rounded-md border border-slate-200 bg-transparent px-1.5 py-0.5 dark:border-slate-700"
             />
             <button
               onClick={() => updateTask(uid, task.id, { dueDate: todayISO() })}
-              className="rounded border border-slate-200 px-1.5 py-0.5 dark:border-slate-700"
+              className="rounded-md border border-slate-200 px-1.5 py-0.5 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               Today
             </button>
             <button
               onClick={() => updateTask(uid, task.id, { dueDate: addDaysISO(1) })}
-              className="rounded border border-slate-200 px-1.5 py-0.5 dark:border-slate-700"
+              className="rounded-md border border-slate-200 px-1.5 py-0.5 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               Tomorrow
             </button>
             {task.dueDate && (
               <button
                 onClick={() => updateTask(uid, task.id, { dueDate: null })}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 Clear
               </button>

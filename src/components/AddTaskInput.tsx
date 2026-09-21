@@ -80,7 +80,7 @@ export function AddTaskInput({ uid, groupId, nextOrder }: AddTaskInputProps) {
             setPendingVoice(null)
           }}
           placeholder="Add a task… (try !high or today/tomorrow)"
-          className="flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-1.5 text-sm outline-none focus:border-slate-400 dark:border-slate-700"
+          className="flex-1 rounded-lg border border-slate-200 bg-transparent px-3 py-1.5 text-sm outline-none transition-colors focus:border-blue-400 dark:border-slate-700"
         />
         {voice.supported && (
           <button
@@ -90,7 +90,7 @@ export function AddTaskInput({ uid, groupId, nextOrder }: AddTaskInputProps) {
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
               voice.listening
                 ? 'animate-pulse border-rose-400 bg-rose-50 text-rose-500 dark:bg-rose-950'
-                : 'border-slate-200 text-slate-400 hover:text-slate-600 dark:border-slate-700'
+                : 'border-slate-200 text-slate-400 hover:border-blue-300 hover:text-blue-500 dark:border-slate-700 dark:hover:border-blue-800'
             }`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -101,7 +101,7 @@ export function AddTaskInput({ uid, groupId, nextOrder }: AddTaskInputProps) {
         )}
         <button
           type="submit"
-          className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"
+          className="shrink-0 rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600 disabled:pointer-events-none disabled:opacity-40"
           disabled={!value.trim()}
         >
           Add

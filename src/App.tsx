@@ -83,12 +83,27 @@ function App() {
 
   return (
     <div className="min-h-svh">
-      <header className="border-b border-slate-200 dark:border-slate-800">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/80">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-4">
-          <h1 className="text-lg font-semibold">Task Pulse</h1>
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-white shadow-sm shadow-blue-500/30">
+              <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+                <path
+                  d="M5 10.5l2.5 2.5 4-5.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <h1 className="text-lg font-semibold tracking-tight">Task Pulse</h1>
+          </div>
           <div className="flex items-center gap-3">
             {tasks.length > 0 && (
-              <span className="text-sm text-slate-400">{overall}% done overall</span>
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+                {overall}% done
+              </span>
             )}
             <ThemeToggle />
             <AccountButton />
@@ -101,8 +116,8 @@ function App() {
               onClick={() => setView(v)}
               className={`rounded-full px-3 py-1 text-sm font-medium capitalize transition-colors ${
                 view === v
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                  : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'bg-blue-500 text-white shadow-sm shadow-blue-500/30'
+                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
               }`}
             >
               {v}
@@ -115,7 +130,9 @@ function App() {
         {!firebaseConfigured ? (
           <ConfigWarning />
         ) : !authReady || !uid ? (
-          <p className="text-center text-sm text-slate-400">Loading…</p>
+          <div className="flex justify-center py-12">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500 dark:border-slate-700 dark:border-t-blue-400" />
+          </div>
         ) : (
           <>
             <SearchFilterBar
@@ -129,6 +146,11 @@ function App() {
               <TodayView uid={uid} tasks={filteredTasks} groups={groups} />
             ) : (
               <>
+                {groups.length === 0 && (
+                  <p className="px-1 text-sm text-slate-400">
+                    No task groups yet — create one below to start adding tasks.
+                  </p>
+                )}
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
                   <SortableContext items={visibleGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
