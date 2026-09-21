@@ -1,6 +1,7 @@
 import { DndContext, type DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
+import { AccountButton } from './components/AccountButton'
 import { NewGroupButton } from './components/NewGroupButton'
 import { SearchFilterBar } from './components/SearchFilterBar'
 import { SortableGroupItem } from './components/SortableGroupItem'
@@ -90,6 +91,7 @@ function App() {
               <span className="text-sm text-slate-400">{overall}% done overall</span>
             )}
             <ThemeToggle />
+            <AccountButton />
           </div>
         </div>
         <div className="mx-auto flex max-w-2xl gap-1 px-4 pb-3">

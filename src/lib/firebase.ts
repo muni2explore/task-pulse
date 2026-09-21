@@ -1,10 +1,14 @@
 import {
   type Auth,
   type User,
+  GoogleAuthProvider,
   connectAuthEmulator,
   getAuth,
+  linkWithPopup,
   onAuthStateChanged,
   signInAnonymously,
+  signInWithPopup,
+  signOut,
 } from 'firebase/auth'
 import { type FirebaseApp, getApps, initializeApp } from 'firebase/app'
 import {
@@ -77,4 +81,36 @@ export function watchAuth(callback: (user: User | null) => void) {
       })
     }
   })
+}
+
+const googleProvider = new GoogleAuthProvider()
+
+// If the current user is anonymous, upgrade that same account (and its data)
+// to Google sign-in via linking, rather than swapping to a fresh account.
+// Returns the resulting user: linking updates the *same* Firebase user object
+// in place (same uid) rather than firing a sign-in/out event, so
+// onAuthStateChanged is not guaranteed to re-fire — callers must push this
+// result into app state themselves instead of waiting on the listener.
+export async function signInWithGoogle(): Promise<User | undefined> {
+  if (!authInstance) return
+  const current = authInstance.currentUser
+
+  if (current?.isAnonymous) {
+    try {
+      const result = await linkWithPopup(current, googleProvider)
+      return result.user
+    } catch (error) {
+      // That Google account is already tied to a different (non-anonymous)
+      // account — fall through and sign into that existing account instead.
+      if ((error as { code?: string }).code !== 'auth/credential-already-in-use') throw error
+    }
+  }
+
+  const result = await signInWithPopup(authInstance, googleProvider)
+  return result.user
+}
+
+export function signOutUser() {
+  if (!authInstance) return Promise.resolve()
+  return signOut(authInstance)
 }

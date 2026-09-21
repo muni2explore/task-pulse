@@ -17,7 +17,9 @@ Project settings → General → Your apps). You'll also need to, in the
 Firebase console:
 
 1. **Authentication → Sign-in method**: enable the **Anonymous** provider
-   (the app signs users in anonymously so it works instantly with no signup).
+   (the app signs users in anonymously so it works instantly with no signup)
+   and the **Google** provider (lets a user upgrade that anonymous session to
+   a real account for cross-device sync, via the account button in the header).
 2. **Firestore Database**: create a database, then deploy the rules in this
    repo so each user can only read/write their own data:
    ```bash
@@ -47,7 +49,13 @@ and set `VITE_USE_FIREBASE_EMULATOR=true` in `.env.local`.
 - `src/lib/firebase.ts` — Firebase app/auth/Firestore init. Firestore uses
   `persistentLocalCache` so the app works offline and syncs automatically
   when back online. Initialization is guarded behind `firebaseConfigured` so
-  a missing `.env` fails gracefully in the UI instead of crashing.
+  a missing `.env` fails gracefully in the UI instead of crashing. Also
+  exports `signInWithGoogle`, which *links* Google to the current anonymous
+  user (same uid, same data) rather than replacing it, falling back to a
+  plain sign-in only if that Google account already belongs to a different,
+  non-anonymous account.
+- `src/components/AccountButton.tsx` — shows "Sign in with Google" while
+  anonymous, or an avatar + sign-out menu once linked.
 - `src/lib/tasksApi.ts` — all Firestore reads/writes (groups and tasks live
   in flat `users/{uid}/groups` and `users/{uid}/tasks` collections, tasks
   reference their group by `groupId`).
