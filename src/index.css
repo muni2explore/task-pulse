@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+/* Switch `dark:` from OS-only (prefers-color-scheme) to class-based, so the
+   in-app theme toggle (useTheme) can override the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  font-family: 'Instrument Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+}
