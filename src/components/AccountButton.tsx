@@ -37,7 +37,8 @@ export function AccountButton() {
     setLoading(true)
     setError(null)
     try {
-      await signInWithGoogle()
+      const signedInUser = await signInWithGoogle()
+      if (signedInUser) syncAuthUser(signedInUser)
     } catch (err) {
       console.error('Google sign-in failed', err)
       setError('Sign-in failed. Please try again.')
