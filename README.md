@@ -75,7 +75,15 @@ and set `VITE_USE_FIREBASE_EMULATOR=true` in `.env.local`.
 ```
 users/{uid}/groups/{groupId}   { name, color, order, collapsed, createdAt }
 users/{uid}/tasks/{taskId}     { groupId, title, notes, percent, priority,
-                                  dueDate, order, createdAt, updatedAt }
+                                  dueDate, recurrence, completedAt, order,
+                                  createdAt, updatedAt }
 ```
+
+`recurrence` (`'none' | 'daily' | 'weekdays' | 'weekly'`) drives auto-creating
+the next occurrence when a task is completed (`spawnNextOccurrence` in
+`tasksApi.ts`), dated from the completion day rather than the old due date.
+`completedAt` is set when `percent` reaches 100 and cleared if un-marked —
+it's what the analytics stats and the Completed tab sort/bucket by, distinct
+from `updatedAt` which changes on every edit.
 
 `firestore.rules` restricts all reads/writes to `request.auth.uid == uid`.

@@ -1,5 +1,7 @@
 export type Priority = 'low' | 'medium' | 'high'
 
+export type Recurrence = 'none' | 'daily' | 'weekdays' | 'weekly'
+
 export interface TaskGroup {
   id: string
   name: string
@@ -17,6 +19,10 @@ export interface Task {
   percent: number
   priority: Priority
   dueDate: string | null
+  recurrence: Recurrence
+  /** Set when percent reaches 100, cleared if un-marked done. Distinct from
+   *  updatedAt, which changes on every edit (rename, due-date change, etc). */
+  completedAt: number | null
   order: number
   createdAt: number
   updatedAt: number

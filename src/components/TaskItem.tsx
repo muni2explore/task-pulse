@@ -1,15 +1,22 @@
 import type { HTMLAttributes } from 'react'
 import { useState } from 'react'
 import { addDaysISO, formatDueLabel, todayISO } from '../lib/date'
-import { deleteTask, restoreTask, setTaskPercent, updateTask } from '../lib/tasksApi'
+import { deleteTask, restoreTask, setTaskPercent, spawnNextOccurrence, updateTask } from '../lib/tasksApi'
 import { useToastStore } from '../store/useToastStore'
-import type { Task } from '../types'
+import type { Recurrence, Task } from '../types'
 import { ProgressBar } from './ProgressBar'
 
 const PRIORITY_BADGE: Record<Task['priority'], string> = {
   low: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
   medium: '',
   high: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400',
+}
+
+const RECURRENCE_LABEL: Record<Recurrence, string> = {
+  none: 'None',
+  daily: 'Daily',
+  weekdays: 'Weekdays',
+  weekly: 'Weekly',
 }
 
 interface TaskItemProps {
@@ -22,16 +29,40 @@ interface TaskItemProps {
 
 export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskItemProps) {
   const [expanded, setExpanded] = useState(false)
+  const [notesDraft, setNotesDraft] = useState(task.notes)
+  // Tracks the last value we synced from, so we can tell "notes changed
+  // from outside" (e.g. an Undo restore) apart from "user is typing" —
+  // adjusting state during render instead of an effect avoids an extra pass.
+  const [syncedNotes, setSyncedNotes] = useState(task.notes)
+  if (task.notes !== syncedNotes) {
+    setSyncedNotes(task.notes)
+    setNotesDraft(task.notes)
+  }
+
   const pushToast = useToastStore((s) => s.push)
   const done = task.percent >= 100
   const due = formatDueLabel(task.dueDate)
+  const hasNotes = task.notes.trim() !== ''
+  const isRecurring = task.recurrence !== 'none'
+
+  function changePercent(next: number) {
+    const clamped = Math.max(0, Math.min(100, next))
+    setTaskPercent(uid, task.id, clamped)
+    if (clamped >= 100 && task.percent < 100 && isRecurring) {
+      spawnNextOccurrence(uid, task)
+    }
+  }
 
   function toggleDone() {
-    setTaskPercent(uid, task.id, done ? 0 : 100)
+    changePercent(done ? 0 : 100)
   }
 
   function bump(delta: number) {
-    setTaskPercent(uid, task.id, task.percent + delta)
+    changePercent(task.percent + delta)
+  }
+
+  function saveNotes() {
+    if (notesDraft !== task.notes) updateTask(uid, task.id, { notes: notesDraft })
   }
 
   function handleDelete() {
@@ -72,7 +103,7 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
         </button>
 
         <button
-          className="flex flex-1 items-center gap-2 truncate text-left text-sm"
+          className="flex flex-1 items-center gap-1.5 truncate text-left text-sm"
           onClick={() => setExpanded((v) => !v)}
         >
           {groupName && (
@@ -84,6 +115,27 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
             </span>
           )}
           <span className={`truncate ${done ? 'text-slate-400 line-through' : ''}`}>{task.title}</span>
+          {isRecurring && (
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-3 w-3 shrink-0 text-slate-400 dark:text-slate-500"
+              aria-label={`Repeats ${RECURRENCE_LABEL[task.recurrence].toLowerCase()}`}
+            >
+              <title>{`Repeats ${RECURRENCE_LABEL[task.recurrence].toLowerCase()}`}</title>
+              <path d="M4 10a6 6 0 019.9-4.5l.6.5h-1.5a.75.75 0 000 1.5h3a.75.75 0 00.75-.75v-3a.75.75 0 00-1.5 0v1.38l-.54-.46A7.5 7.5 0 003 10a.75.75 0 001.5 0A6 6 0 014 10zm12 0a6 6 0 01-9.9 4.5l-.6-.5h1.5a.75.75 0 000-1.5h-3a.75.75 0 00-.75.75v3a.75.75 0 001.5 0v-1.38l.54.46A7.5 7.5 0 0017 10a.75.75 0 00-1.5 0z" />
+            </svg>
+          )}
+          {hasNotes && (
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600">
+              <title>Has notes</title>
+              <path
+                fillRule="evenodd"
+                d="M4 4.5A1.5 1.5 0 015.5 3h9A1.5 1.5 0 0116 4.5v9.086a1.5 1.5 0 01-.44 1.06l-2.914 2.915a1.5 1.5 0 01-1.06.439H5.5A1.5 1.5 0 014 16.5v-12zm3 2.75a.75.75 0 000 1.5h6a.75.75 0 000-1.5H7zm0 3a.75.75 0 000 1.5h6a.75.75 0 000-1.5H7zm0 3a.75.75 0 000 1.5h3a.75.75 0 000-1.5H7z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
         </button>
 
         {due && (
@@ -128,7 +180,7 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
       </div>
 
       {expanded && (
-        <div className="mt-2.5 space-y-2 pl-7">
+        <div className="mt-2.5 space-y-2.5 pl-7">
           <div className="flex items-center gap-2">
             <input
               type="range"
@@ -136,7 +188,7 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
               max={100}
               step={5}
               value={task.percent}
-              onChange={(e) => setTaskPercent(uid, task.id, Number(e.target.value))}
+              onChange={(e) => changePercent(Number(e.target.value))}
               className="flex-1 accent-current"
               style={{ color }}
             />
@@ -155,7 +207,7 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
           </div>
 
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-400">Due</span>
+            <span className="w-9 shrink-0 text-slate-400">Due</span>
             <input
               type="date"
               value={task.dueDate ?? ''}
@@ -182,6 +234,42 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
                 Clear
               </button>
             )}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs">
+            <span className="w-9 shrink-0 text-slate-400">Repeat</span>
+            <div className="flex gap-1">
+              {(Object.keys(RECURRENCE_LABEL) as Recurrence[]).map((option) => (
+                <button
+                  key={option}
+                  onClick={() =>
+                    updateTask(uid, task.id, {
+                      recurrence: option,
+                      ...(option !== 'none' && !task.dueDate ? { dueDate: todayISO() } : {}),
+                    })
+                  }
+                  className={`rounded-md border px-1.5 py-0.5 ${
+                    task.recurrence === option
+                      ? 'border-blue-400 bg-blue-50 text-blue-600 dark:border-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
+                      : 'border-slate-200 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {RECURRENCE_LABEL[option]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="text-slate-400">Notes</span>
+            <textarea
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              onBlur={saveNotes}
+              placeholder="Add notes…"
+              rows={2}
+              className="w-full resize-none rounded-md border border-slate-200 bg-transparent px-2 py-1.5 text-xs outline-none transition-colors focus:border-blue-400 dark:border-slate-700"
+            />
           </div>
         </div>
       )}

@@ -2,6 +2,8 @@ import { DndContext, type DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMemo, useState } from 'react'
 import { AccountButton } from './components/AccountButton'
+import { AnalyticsBar } from './components/AnalyticsBar'
+import { CompletedView } from './components/CompletedView'
 import { NewGroupButton } from './components/NewGroupButton'
 import { SearchFilterBar } from './components/SearchFilterBar'
 import { SortableGroupItem } from './components/SortableGroupItem'
@@ -9,12 +11,13 @@ import { ThemeToggle } from './components/ThemeToggle'
 import { ToastContainer } from './components/ToastContainer'
 import { TodayView } from './components/TodayView'
 import { useDndSensors } from './hooks/useDndSensors'
+import { computeStats } from './lib/analytics'
 import { firebaseConfigured } from './lib/firebase'
 import { reorderGroups } from './lib/tasksApi'
 import { useTaskStore } from './store/useTaskStore'
 import type { Priority } from './types'
 
-type View = 'groups' | 'today'
+type View = 'groups' | 'today' | 'completed'
 
 function ConfigWarning() {
   return (
@@ -66,10 +69,7 @@ function App() {
     return groups.filter((g) => (tasksByGroup.get(g.id) ?? []).length > 0)
   }, [groups, filtersActive, tasksByGroup])
 
-  const overall = useMemo(() => {
-    if (tasks.length === 0) return 0
-    return Math.round(tasks.reduce((sum, t) => sum + t.percent, 0) / tasks.length)
-  }, [tasks])
+  const stats = useMemo(() => computeStats(tasks), [tasks])
 
   function handleGroupDragEnd(event: DragEndEvent) {
     if (!uid) return
@@ -100,17 +100,12 @@ function App() {
             <h1 className="text-lg font-semibold tracking-tight">Task Pulse</h1>
           </div>
           <div className="flex items-center gap-3">
-            {tasks.length > 0 && (
-              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
-                {overall}% done
-              </span>
-            )}
             <ThemeToggle />
             <AccountButton />
           </div>
         </div>
         <div className="mx-auto flex max-w-2xl gap-1 px-4 pb-3">
-          {(['groups', 'today'] as const).map((v) => (
+          {(['groups', 'today', 'completed'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -135,6 +130,8 @@ function App() {
           </div>
         ) : (
           <>
+            {tasks.length > 0 && <AnalyticsBar stats={stats} />}
+
             <SearchFilterBar
               query={query}
               onQueryChange={setQuery}
@@ -144,6 +141,8 @@ function App() {
 
             {view === 'today' ? (
               <TodayView uid={uid} tasks={filteredTasks} groups={groups} />
+            ) : view === 'completed' ? (
+              <CompletedView uid={uid} tasks={filteredTasks} groups={groups} />
             ) : (
               <>
                 {groups.length === 0 && (

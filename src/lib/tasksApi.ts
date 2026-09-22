@@ -14,7 +14,8 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { Priority, Task, TaskGroup } from '../types'
+import { addDaysISO } from './date'
+import type { Priority, Recurrence, Task, TaskGroup } from '../types'
 
 const groupsRef = (uid: string) => collection(db, 'users', uid, 'groups')
 const tasksRef = (uid: string) => collection(db, 'users', uid, 'tasks')
@@ -29,7 +30,20 @@ export function watchGroups(uid: string, onChange: (groups: TaskGroup[]) => void
 export function watchTasks(uid: string, onChange: (tasks: Task[]) => void) {
   const q = query(tasksRef(uid), orderBy('order', 'asc'))
   return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Task))
+    onChange(
+      snap.docs.map((d) => {
+        const data = d.data()
+        // Default fields added after some tasks were already created, so
+        // older docs won't have them — normalize here rather than scattering
+        // `?? fallback` checks through every consumer.
+        return {
+          id: d.id,
+          ...data,
+          completedAt: data.completedAt ?? null,
+          recurrence: data.recurrence ?? 'none',
+        } as Task
+      }),
+    )
   })
 }
 
@@ -78,6 +92,7 @@ export function createTask(
     priority?: Priority
     dueDate?: string | null
     notes?: string
+    recurrence?: Recurrence
   },
 ) {
   return addDoc(tasksRef(uid), {
@@ -87,6 +102,8 @@ export function createTask(
     percent: 0,
     priority: input.priority ?? 'medium',
     dueDate: input.dueDate ?? null,
+    recurrence: input.recurrence ?? 'none',
+    completedAt: null,
     order: input.order,
     createdAt: Date.now(),
     updatedAt: serverTimestamp(),
@@ -94,8 +111,10 @@ export function createTask(
 }
 
 export function setTaskPercent(uid: string, taskId: string, percent: number) {
+  const clamped = Math.max(0, Math.min(100, percent))
   return updateDoc(doc(db, 'users', uid, 'tasks', taskId), {
-    percent: Math.max(0, Math.min(100, percent)),
+    percent: clamped,
+    completedAt: clamped >= 100 ? Date.now() : null,
     updatedAt: serverTimestamp(),
   })
 }
@@ -103,11 +122,41 @@ export function setTaskPercent(uid: string, taskId: string, percent: number) {
 export function updateTask(
   uid: string,
   taskId: string,
-  patch: Partial<Pick<Task, 'title' | 'notes' | 'priority' | 'dueDate' | 'groupId'>>,
+  patch: Partial<Pick<Task, 'title' | 'notes' | 'priority' | 'dueDate' | 'groupId' | 'recurrence'>>,
 ) {
   return updateDoc(doc(db, 'users', uid, 'tasks', taskId), {
     ...patch,
     updatedAt: serverTimestamp(),
+  })
+}
+
+function nextRecurrenceDate(recurrence: Recurrence): string {
+  if (recurrence === 'weekly') return addDaysISO(7)
+  if (recurrence === 'weekdays') {
+    let offset = 1
+    let day = new Date(Date.now() + offset * 86_400_000).getDay()
+    while (day === 0 || day === 6) {
+      offset++
+      day = new Date(Date.now() + offset * 86_400_000).getDay()
+    }
+    return addDaysISO(offset)
+  }
+  return addDaysISO(1) // 'daily'
+}
+
+// Called when a recurring task is completed: creates the next occurrence
+// dated from today (the completion date), not the old due date — so a task
+// finished late doesn't drag every future occurrence's date along with it.
+export function spawnNextOccurrence(uid: string, task: Task) {
+  if (task.recurrence === 'none') return
+  return createTask(uid, {
+    groupId: task.groupId,
+    title: task.title,
+    order: task.order,
+    priority: task.priority,
+    notes: task.notes,
+    recurrence: task.recurrence,
+    dueDate: nextRecurrenceDate(task.recurrence),
   })
 }
 

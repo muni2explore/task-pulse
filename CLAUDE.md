@@ -78,7 +78,10 @@ Tailwind v4 via the `@tailwindcss/vite` plugin — there is no `tailwind.config.
 ```
 users/{uid}/groups/{groupId}   { name, color, order, collapsed, createdAt }
 users/{uid}/tasks/{taskId}     { groupId, title, notes, percent, priority,
-                                  dueDate, order, createdAt, updatedAt }
+                                  dueDate, recurrence, completedAt, order,
+                                  createdAt, updatedAt }
 ```
 
 Tasks reference their group by `groupId`, not a subcollection — both collections are flat under the user. Deleting a group (`deleteGroup` in `tasksApi.ts`) cascades to delete its tasks in the same batch; without that they'd be silently orphaned (invisible but still stored).
+
+`recurrence` (`'none' | 'daily' | 'weekdays' | 'weekly'`) and `completedAt` were added after the first tasks existed, so `watchTasks` normalizes them (`?? 'none'` / `?? null`) when reading snapshots — don't assume every doc in Firestore actually has them, only that every `Task` object the app hands you does. `completedAt` is set/cleared in `setTaskPercent` based on whether the clamped value crosses 100, and is what `src/lib/analytics.ts` (stats chips, streak) and `CompletedView.tsx` (date-bucketed history) key off — it's intentionally separate from `updatedAt`, which changes on any edit. Completing a recurring task calls `spawnNextOccurrence` (`tasksApi.ts`) to create the next instance dated from the completion day; it does not touch or delete the completed instance, and un-completing a task afterward does not retract an occurrence that already spawned.
