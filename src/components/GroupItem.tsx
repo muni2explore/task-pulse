@@ -8,6 +8,7 @@ import type { Task, TaskGroup } from '../types'
 import { AddTaskInput } from './AddTaskInput'
 import { ProgressBar } from './ProgressBar'
 import { SortableTaskItem } from './SortableTaskItem'
+import { TaskItem } from './TaskItem'
 
 interface GroupItemProps {
   uid: string
@@ -20,6 +21,7 @@ interface GroupItemProps {
 export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandleProps }: GroupItemProps) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(group.name)
+  const [showCompleted, setShowCompleted] = useState(false)
   const sensors = useDndSensors()
 
   const { doneCount, avgPercent } = useMemo(() => {
@@ -28,6 +30,9 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
     const avg = Math.round(tasks.reduce((sum, t) => sum + t.percent, 0) / tasks.length)
     return { doneCount: done, avgPercent: avg }
   }, [tasks])
+
+  const activeTasks = useMemo(() => tasks.filter((t) => t.percent < 100), [tasks])
+  const completedTasks = useMemo(() => tasks.filter((t) => t.percent >= 100), [tasks])
 
   const nextOrder = tasks.length ? Math.max(...tasks.map((t) => t.order)) + 1 : 0
 
@@ -41,10 +46,10 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
   function handleTaskDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = tasks.findIndex((t) => t.id === active.id)
-    const newIndex = tasks.findIndex((t) => t.id === over.id)
+    const oldIndex = activeTasks.findIndex((t) => t.id === active.id)
+    const newIndex = activeTasks.findIndex((t) => t.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
-    reorderTasks(uid, arrayMove(tasks, oldIndex, newIndex).map((t) => t.id))
+    reorderTasks(uid, arrayMove(activeTasks, oldIndex, newIndex).map((t) => t.id))
   }
 
   return (
@@ -133,9 +138,9 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
       {!group.collapsed && (
         <div className="space-y-2 px-4 pb-4 pt-3">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
-            <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={activeTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
               <ul className="space-y-1.5">
-                {tasks.map((task) => (
+                {activeTasks.map((task) => (
                   <SortableTaskItem
                     key={task.id}
                     uid={uid}
@@ -147,6 +152,38 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
               </ul>
             </SortableContext>
           </DndContext>
+
+          {completedTasks.length > 0 && (
+            <div>
+              <button
+                onClick={() => setShowCompleted((v) => !v)}
+                className="flex items-center gap-1 px-1 py-1 text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className={`h-3 w-3 transition-transform ${showCompleted ? '' : '-rotate-90'}`}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {completedTasks.length} completed
+              </button>
+              {showCompleted && (
+                <ul className="mt-1.5 space-y-1.5">
+                  {completedTasks.map((task) => (
+                    <li key={task.id}>
+                      <TaskItem uid={uid} task={task} color={group.color} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <AddTaskInput uid={uid} groupId={group.id} nextOrder={nextOrder} />
         </div>
       )}
