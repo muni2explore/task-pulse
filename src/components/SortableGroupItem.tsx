@@ -8,9 +8,20 @@ interface SortableGroupItemProps {
   group: TaskGroup
   tasks: Task[]
   dragDisabled: boolean
+  selectMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (taskId: string) => void
 }
 
-export function SortableGroupItem({ uid, group, tasks, dragDisabled }: SortableGroupItemProps) {
+export function SortableGroupItem({
+  uid,
+  group,
+  tasks,
+  dragDisabled,
+  selectMode,
+  selectedIds,
+  onToggleSelect,
+}: SortableGroupItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id,
     disabled: dragDisabled,
@@ -28,6 +39,9 @@ export function SortableGroupItem({ uid, group, tasks, dragDisabled }: SortableG
         tasks={tasks}
         reorderEnabled={!dragDisabled}
         dragHandleProps={dragDisabled ? undefined : { ...attributes, ...listeners }}
+        selectMode={selectMode}
+        selectedIds={selectedIds}
+        onToggleSelect={onToggleSelect}
       />
     </div>
   )

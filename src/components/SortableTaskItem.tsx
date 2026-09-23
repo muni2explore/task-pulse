@@ -9,9 +9,21 @@ interface SortableTaskItemProps {
   color: string
   dragDisabled: boolean
   groupName?: string
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }
 
-export function SortableTaskItem({ uid, task, color, dragDisabled, groupName }: SortableTaskItemProps) {
+export function SortableTaskItem({
+  uid,
+  task,
+  color,
+  dragDisabled,
+  groupName,
+  selectMode,
+  selected,
+  onToggleSelect,
+}: SortableTaskItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: dragDisabled,
@@ -29,6 +41,9 @@ export function SortableTaskItem({ uid, task, color, dragDisabled, groupName }: 
         color={color}
         groupName={groupName}
         dragHandleProps={dragDisabled ? undefined : { ...attributes, ...listeners }}
+        selectMode={selectMode}
+        selected={selected}
+        onToggleSelect={onToggleSelect}
       />
     </li>
   )

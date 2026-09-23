@@ -16,9 +16,21 @@ interface GroupItemProps {
   tasks: Task[]
   reorderEnabled?: boolean
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>
+  selectMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (taskId: string) => void
 }
 
-export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandleProps }: GroupItemProps) {
+export function GroupItem({
+  uid,
+  group,
+  tasks,
+  reorderEnabled = true,
+  dragHandleProps,
+  selectMode = false,
+  selectedIds,
+  onToggleSelect,
+}: GroupItemProps) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(group.name)
   const [showCompleted, setShowCompleted] = useState(false)
@@ -146,7 +158,10 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
                     uid={uid}
                     task={task}
                     color={group.color}
-                    dragDisabled={!reorderEnabled}
+                    dragDisabled={!reorderEnabled || selectMode}
+                    selectMode={selectMode}
+                    selected={selectedIds?.has(task.id)}
+                    onToggleSelect={() => onToggleSelect?.(task.id)}
                   />
                 ))}
               </ul>
@@ -176,7 +191,14 @@ export function GroupItem({ uid, group, tasks, reorderEnabled = true, dragHandle
                 <ul className="mt-1.5 space-y-1.5">
                   {completedTasks.map((task) => (
                     <li key={task.id}>
-                      <TaskItem uid={uid} task={task} color={group.color} />
+                      <TaskItem
+                        uid={uid}
+                        task={task}
+                        color={group.color}
+                        selectMode={selectMode}
+                        selected={selectedIds?.has(task.id)}
+                        onToggleSelect={() => onToggleSelect?.(task.id)}
+                      />
                     </li>
                   ))}
                 </ul>

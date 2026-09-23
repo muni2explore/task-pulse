@@ -65,6 +65,14 @@ export function setGroupCollapsed(uid: string, groupId: string, collapsed: boole
   return updateDoc(doc(db, 'users', uid, 'groups', groupId), { collapsed })
 }
 
+export function setAllGroupsCollapsed(uid: string, groupIds: string[], collapsed: boolean) {
+  const batch = writeBatch(db)
+  groupIds.forEach((id) => {
+    batch.update(doc(db, 'users', uid, 'groups', id), { collapsed })
+  })
+  return batch.commit()
+}
+
 export function reorderGroups(uid: string, orderedIds: string[]) {
   const batch = writeBatch(db)
   orderedIds.forEach((id, index) => {
@@ -176,4 +184,36 @@ export function deleteTask(uid: string, taskId: string) {
 export function restoreTask(uid: string, task: Task) {
   const { id, ...fields } = task
   return setDoc(doc(db, 'users', uid, 'tasks', id), fields)
+}
+
+export function bulkSetPercent(uid: string, taskIds: string[], percent: number) {
+  const clamped = Math.max(0, Math.min(100, percent))
+  const batch = writeBatch(db)
+  taskIds.forEach((id) => {
+    batch.update(doc(db, 'users', uid, 'tasks', id), {
+      percent: clamped,
+      completedAt: clamped >= 100 ? Date.now() : null,
+      updatedAt: serverTimestamp(),
+    })
+  })
+  return batch.commit()
+}
+
+export function bulkDeleteTasks(uid: string, taskIds: string[]) {
+  const batch = writeBatch(db)
+  taskIds.forEach((id) => {
+    batch.delete(doc(db, 'users', uid, 'tasks', id))
+  })
+  return batch.commit()
+}
+
+// Recreates several tasks with their original ids/fields, for an "Undo"
+// toast after a bulk delete.
+export function restoreTasks(uid: string, tasks: Task[]) {
+  const batch = writeBatch(db)
+  tasks.forEach((task) => {
+    const { id, ...fields } = task
+    batch.set(doc(db, 'users', uid, 'tasks', id), fields)
+  })
+  return batch.commit()
 }

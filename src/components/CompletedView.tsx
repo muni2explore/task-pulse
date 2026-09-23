@@ -9,9 +9,12 @@ interface CompletedViewProps {
   uid: string
   tasks: Task[]
   groups: TaskGroup[]
+  selectMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (taskId: string) => void
 }
 
-export function CompletedView({ uid, tasks, groups }: CompletedViewProps) {
+export function CompletedView({ uid, tasks, groups, selectMode, selectedIds, onToggleSelect }: CompletedViewProps) {
   const groupById = useMemo(() => new Map(groups.map((g) => [g.id, g])), [groups])
 
   const buckets = useMemo(() => {
@@ -58,7 +61,15 @@ export function CompletedView({ uid, tasks, groups }: CompletedViewProps) {
               const group = groupById.get(task.groupId)
               return (
                 <li key={task.id}>
-                  <TaskItem uid={uid} task={task} color={group?.color ?? '#3b82f6'} groupName={group?.name} />
+                  <TaskItem
+                    uid={uid}
+                    task={task}
+                    color={group?.color ?? '#3b82f6'}
+                    groupName={group?.name}
+                    selectMode={selectMode}
+                    selected={selectedIds?.has(task.id)}
+                    onToggleSelect={() => onToggleSelect?.(task.id)}
+                  />
                 </li>
               )
             })}

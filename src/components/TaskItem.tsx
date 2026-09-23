@@ -25,9 +25,21 @@ interface TaskItemProps {
   color: string
   groupName?: string
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }
 
-export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskItemProps) {
+export function TaskItem({
+  uid,
+  task,
+  color,
+  groupName,
+  dragHandleProps,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
+}: TaskItemProps) {
   const [expanded, setExpanded] = useState(false)
   const [notesDraft, setNotesDraft] = useState(task.notes)
   // Tracks the last value we synced from, so we can tell "notes changed
@@ -74,10 +86,19 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
     })
   }
 
+  function handleSnooze() {
+    updateTask(uid, task.id, { dueDate: addDaysISO(1) })
+  }
+
+  function handleTitleClick() {
+    if (selectMode) onToggleSelect?.()
+    else setExpanded((v) => !v)
+  }
+
   return (
     <div className="group rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:bg-slate-800/40">
       <div className="flex items-center gap-2">
-        {dragHandleProps && (
+        {!selectMode && dragHandleProps && (
           <button
             {...dragHandleProps}
             aria-label="Drag to reorder"
@@ -89,23 +110,37 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
           </button>
         )}
 
-        <button
-          onClick={toggleDone}
-          aria-label={done ? 'Mark as not done' : 'Mark as done'}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-          style={{ borderColor: color, backgroundColor: done ? color : 'transparent' }}
-        >
-          {done && (
-            <svg viewBox="0 0 20 20" fill="white" className="h-3 w-3 animate-[check-pop_220ms_ease]">
-              <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 111.4-1.4L8.3 11.6l6.3-6.3a1 1 0 011.4 0z" />
-            </svg>
-          )}
-        </button>
+        {selectMode ? (
+          <button
+            onClick={onToggleSelect}
+            aria-label={selected ? 'Deselect task' : 'Select task'}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              selected ? '' : 'border-slate-300 dark:border-slate-600'
+            }`}
+            style={selected ? { borderColor: color, backgroundColor: color } : undefined}
+          >
+            {selected && (
+              <svg viewBox="0 0 20 20" fill="white" className="h-3 w-3">
+                <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 111.4-1.4L8.3 11.6l6.3-6.3a1 1 0 011.4 0z" />
+              </svg>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={toggleDone}
+            aria-label={done ? 'Mark as not done' : 'Mark as done'}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
+            style={{ borderColor: color, backgroundColor: done ? color : 'transparent' }}
+          >
+            {done && (
+              <svg viewBox="0 0 20 20" fill="white" className="h-3 w-3 animate-[check-pop_220ms_ease]">
+                <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3-3a1 1 0 111.4-1.4L8.3 11.6l6.3-6.3a1 1 0 011.4 0z" />
+              </svg>
+            )}
+          </button>
+        )}
 
-        <button
-          className="flex flex-1 items-center gap-1.5 truncate text-left text-sm"
-          onClick={() => setExpanded((v) => !v)}
-        >
+        <button className="flex flex-1 items-center gap-1.5 truncate text-left text-sm" onClick={handleTitleClick}>
           {groupName && (
             <span
               className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
@@ -160,26 +195,43 @@ export function TaskItem({ uid, task, color, groupName, dragHandleProps }: TaskI
           {task.percent}%
         </span>
 
-        <button
-          onClick={handleDelete}
-          aria-label="Delete task"
-          className="shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-rose-500 focus-visible:opacity-100 group-hover:opacity-100 dark:text-slate-600"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-            <path
-              fillRule="evenodd"
-              d="M8.75 1A2.75 2.75 0 006 3.75v.5h-3.5a.75.75 0 000 1.5h.54l.83 10.78A2.75 2.75 0 006.6 19h6.8a2.75 2.75 0 002.73-2.47l.83-10.78h.54a.75.75 0 000-1.5H14v-.5A2.75 2.75 0 0011.25 1h-2.5zM7.5 4.25v-.5c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25v.5h-5z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
+        {!selectMode && task.dueDate && !done && (
+          <button
+            onClick={handleSnooze}
+            aria-label="Snooze to tomorrow"
+            title="Snooze to tomorrow"
+            className="shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-blue-500 focus-visible:opacity-100 group-hover:opacity-100 dark:text-slate-600"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+              <circle cx="10" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M10 8v3l2 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 3L5.5 4.5M13 3l1.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+
+        {!selectMode && (
+          <button
+            onClick={handleDelete}
+            aria-label="Delete task"
+            className="shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-rose-500 focus-visible:opacity-100 group-hover:opacity-100 dark:text-slate-600"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path
+                fillRule="evenodd"
+                d="M8.75 1A2.75 2.75 0 006 3.75v.5h-3.5a.75.75 0 000 1.5h.54l.83 10.78A2.75 2.75 0 006.6 19h6.8a2.75 2.75 0 002.73-2.47l.83-10.78h.54a.75.75 0 000-1.5H14v-.5A2.75 2.75 0 0011.25 1h-2.5zM7.5 4.25v-.5c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25v.5h-5z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="mt-2 pl-7">
         <ProgressBar percent={task.percent} color={color} />
       </div>
 
-      {expanded && (
+      {expanded && !selectMode && (
         <div className="mt-2.5 space-y-2.5 pl-7">
           <div className="flex items-center gap-2">
             <input

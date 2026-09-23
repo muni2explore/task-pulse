@@ -5,16 +5,28 @@ import { AccountButton } from './components/AccountButton'
 import { AnalyticsBar } from './components/AnalyticsBar'
 import { CompletedView } from './components/CompletedView'
 import { NewGroupButton } from './components/NewGroupButton'
+import { NotificationToggle } from './components/NotificationToggle'
+import { OfflineBanner } from './components/OfflineBanner'
 import { SearchFilterBar } from './components/SearchFilterBar'
+import { SelectionBar } from './components/SelectionBar'
 import { SortableGroupItem } from './components/SortableGroupItem'
 import { ThemeToggle } from './components/ThemeToggle'
 import { ToastContainer } from './components/ToastContainer'
 import { TodayView } from './components/TodayView'
 import { useDndSensors } from './hooks/useDndSensors'
+import { useDueTaskNotifications } from './hooks/useDueTaskNotifications'
 import { computeStats } from './lib/analytics'
 import { firebaseConfigured } from './lib/firebase'
-import { reorderGroups } from './lib/tasksApi'
+import {
+  bulkDeleteTasks,
+  bulkSetPercent,
+  reorderGroups,
+  restoreTasks,
+  setAllGroupsCollapsed,
+  spawnNextOccurrence,
+} from './lib/tasksApi'
 import { useTaskStore } from './store/useTaskStore'
+import { useToastStore } from './store/useToastStore'
 import type { Priority } from './types'
 
 type View = 'groups' | 'today' | 'completed'
@@ -42,6 +54,9 @@ function App() {
   const [view, setView] = useState<View>('groups')
   const [query, setQuery] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const pushToast = useToastStore((s) => s.push)
 
   const filtersActive = query.trim() !== '' || priorityFilter !== 'all'
 
@@ -70,6 +85,9 @@ function App() {
   }, [groups, filtersActive, tasksByGroup])
 
   const stats = useMemo(() => computeStats(tasks), [tasks])
+  const allCollapsed = groups.length > 0 && groups.every((g) => g.collapsed)
+
+  useDueTaskNotifications(tasks, groups)
 
   function handleGroupDragEnd(event: DragEndEvent) {
     if (!uid) return
@@ -79,6 +97,46 @@ function App() {
     const newIndex = groups.findIndex((g) => g.id === over.id)
     if (oldIndex === -1 || newIndex === -1) return
     reorderGroups(uid, arrayMove(groups, oldIndex, newIndex).map((g) => g.id))
+  }
+
+  function toggleSelect(taskId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+      return next
+    })
+  }
+
+  function handleToggleSelectMode() {
+    setSelectMode((v) => !v)
+    setSelectedIds(new Set())
+  }
+
+  function handleBulkComplete() {
+    if (!uid || selectedIds.size === 0) return
+    const ids = [...selectedIds]
+    const toComplete = tasks.filter((t) => selectedIds.has(t.id) && t.percent < 100)
+    bulkSetPercent(uid, ids, 100)
+    toComplete.forEach((task) => {
+      if (task.recurrence !== 'none') spawnNextOccurrence(uid, task)
+    })
+    setSelectedIds(new Set())
+    setSelectMode(false)
+  }
+
+  function handleBulkDelete() {
+    if (!uid || selectedIds.size === 0) return
+    const ids = [...selectedIds]
+    const toDelete = tasks.filter((t) => selectedIds.has(t.id))
+    bulkDeleteTasks(uid, ids)
+    pushToast({
+      message: `Deleted ${toDelete.length} task${toDelete.length === 1 ? '' : 's'}`,
+      actionLabel: 'Undo',
+      onAction: () => restoreTasks(uid, toDelete),
+    })
+    setSelectedIds(new Set())
+    setSelectMode(false)
   }
 
   return (
@@ -100,6 +158,7 @@ function App() {
             <h1 className="text-lg font-semibold tracking-tight">Task Pulse</h1>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationToggle />
             <ThemeToggle />
             <AccountButton />
           </div>
@@ -121,6 +180,8 @@ function App() {
         </div>
       </header>
 
+      <OfflineBanner />
+
       <main className="mx-auto max-w-2xl space-y-3 px-4 py-6">
         {!firebaseConfigured ? (
           <ConfigWarning />
@@ -139,16 +200,58 @@ function App() {
               onPriorityChange={setPriorityFilter}
             />
 
+            <SelectionBar
+              selectMode={selectMode}
+              selectedCount={selectedIds.size}
+              onToggleSelectMode={handleToggleSelectMode}
+              onBulkComplete={handleBulkComplete}
+              onBulkDelete={handleBulkDelete}
+            />
+
             {view === 'today' ? (
-              <TodayView uid={uid} tasks={filteredTasks} groups={groups} />
+              <TodayView
+                uid={uid}
+                tasks={filteredTasks}
+                groups={groups}
+                selectMode={selectMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+              />
             ) : view === 'completed' ? (
-              <CompletedView uid={uid} tasks={filteredTasks} groups={groups} />
+              <CompletedView
+                uid={uid}
+                tasks={filteredTasks}
+                groups={groups}
+                selectMode={selectMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+              />
             ) : (
               <>
-                {groups.length === 0 && (
+                {groups.length === 0 ? (
                   <p className="px-1 text-sm text-slate-400">
                     No task groups yet — create one below to start adding tasks.
                   </p>
+                ) : (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setAllGroupsCollapsed(uid, groups.map((g) => g.id), !allCollapsed)}
+                      className="flex items-center gap-1 px-1 py-1 text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className={`h-3 w-3 transition-transform ${allCollapsed ? '-rotate-90' : ''}`}
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      {allCollapsed ? 'Expand all' : 'Collapse all'}
+                    </button>
+                  </div>
                 )}
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
                   <SortableContext items={visibleGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
@@ -159,7 +262,10 @@ function App() {
                           uid={uid}
                           group={group}
                           tasks={tasksByGroup.get(group.id) ?? []}
-                          dragDisabled={filtersActive}
+                          dragDisabled={filtersActive || selectMode}
+                          selectMode={selectMode}
+                          selectedIds={selectedIds}
+                          onToggleSelect={toggleSelect}
                         />
                       ))}
                     </div>
