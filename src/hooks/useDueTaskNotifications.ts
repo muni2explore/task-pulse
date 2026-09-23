@@ -41,6 +41,12 @@ function cleanupOldNotifiedKeys(today: string) {
   }
 }
 
+// `new Notification()` throws on some platforms (Android Chrome requires
+// ServiceWorkerRegistration.showNotification() instead and treats the plain
+// constructor as an "illegal constructor" call) — once that happens, stop
+// retrying for the rest of the session instead of throwing on every check.
+let unsupported = false
+
 export function useDueTaskNotifications(tasks: Task[], groups: TaskGroup[]) {
   useEffect(() => {
     cleanupOldNotifiedKeys(todayISO())
@@ -48,7 +54,7 @@ export function useDueTaskNotifications(tasks: Task[], groups: TaskGroup[]) {
 
   useEffect(() => {
     function check() {
-      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+      if (unsupported || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
 
       const today = todayISO()
       const notified = getNotifiedIds(today)
@@ -59,14 +65,20 @@ export function useDueTaskNotifications(tasks: Task[], groups: TaskGroup[]) {
         if (task.percent >= 100 || task.dueDate !== today || notified.has(task.id)) continue
 
         const group = groupById.get(task.groupId)
-        const notification = new Notification(task.title, {
-          body: group ? `Due today · ${group.name}` : 'Due today',
-          tag: task.id,
-          icon: '/icon-192.png',
-        })
-        notification.onclick = () => {
-          window.focus()
-          notification.close()
+        try {
+          const notification = new Notification(task.title, {
+            body: group ? `Due today · ${group.name}` : 'Due today',
+            tag: task.id,
+            icon: '/icon-192.png',
+          })
+          notification.onclick = () => {
+            window.focus()
+            notification.close()
+          }
+        } catch (error) {
+          console.warn('Notification failed — this browser needs a service worker for notifications', error)
+          unsupported = true
+          break
         }
 
         notified.add(task.id)
